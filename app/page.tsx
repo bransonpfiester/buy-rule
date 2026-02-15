@@ -1,65 +1,123 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import SavingsCard from './components/SavingsCard';
+import ProductGrid from './components/ProductGrid';
+import AddItemModal from './components/AddItemModal';
+import { BuyRuleItem, loadData, saveData } from './lib/storage';
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<'waiting' | 'saved'>('waiting');
+  const [items, setItems] = useState<BuyRuleItem[]>([]);
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const data = loadData();
+    setItems(data.items);
+  }, []);
+
+  const waitingItems = items.filter(item => item.status === 'waiting');
+  const savedItems = items.filter(item => item.status === 'saved');
+  
+  const totalSaved = savedItems.reduce((sum, item) => sum + item.price, 0);
+  const totalAvoided = savedItems.length;
+
+  const handleAddItem = (item: BuyRuleItem) => {
+    const updatedItems = [...items, item];
+    setItems(updatedItems);
+    saveData({ items: updatedItems });
+    setShowModal(false);
+  };
+
+  const handleItemAction = (itemId: string, action: 'still-want' | 'skip' | 'bought') => {
+    const updatedItems = items.map(item => {
+      if (item.id === itemId) {
+        if (action === 'still-want') {
+          // Reset timer
+          const newExpiresAt = Date.now() + item.waitDurationMs;
+          return { ...item, expiresAt: newExpiresAt };
+        } else if (action === 'skip') {
+          return { ...item, status: 'saved' as const, decisionMadeAt: Date.now() };
+        } else if (action === 'bought') {
+          return { ...item, status: 'bought' as const, decisionMadeAt: Date.now() };
+        }
+      }
+      return item;
+    });
+    
+    setItems(updatedItems);
+    saveData({ items: updatedItems });
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Header */}
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">48-Hour Buy Rule</h1>
+          <p className="text-gray-600 mt-1">Beat impulse purchases, save money 💰</p>
+        </header>
+
+        {/* Savings Card */}
+        <SavingsCard 
+          totalSaved={totalSaved}
+          itemsAvoided={totalAvoided}
+          totalItems={items.length}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Navigation Tabs */}
+        <div className="flex border-b-2 border-gray-200 mb-6 mt-8">
+          <button
+            onClick={() => setActiveTab('waiting')}
+            className={`flex-1 py-3 font-medium text-lg transition-colors relative ${
+              activeTab === 'waiting'
+                ? 'text-green-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Waiting ({waitingItems.length})
+            {activeTab === 'waiting' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600"></div>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('saved')}
+            className={`flex-1 py-3 font-medium text-lg transition-colors relative ${
+              activeTab === 'saved'
+                ? 'text-green-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
           >
-            Documentation
-          </a>
+            Saved ({savedItems.length})
+            {activeTab === 'saved' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600"></div>
+            )}
+          </button>
         </div>
-      </main>
+
+        {/* Product Grid */}
+        <ProductGrid
+          items={activeTab === 'waiting' ? waitingItems : savedItems}
+          onItemAction={handleItemAction}
+        />
+
+        {/* Floating Add Button */}
+        <button
+          onClick={() => setShowModal(true)}
+          className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center text-3xl z-50"
+          aria-label="Add new item"
+        >
+          +
+        </button>
+
+        {/* Add Item Modal */}
+        {showModal && (
+          <AddItemModal
+            onClose={() => setShowModal(false)}
+            onAdd={handleAddItem}
+          />
+        )}
+      </div>
     </div>
   );
 }
