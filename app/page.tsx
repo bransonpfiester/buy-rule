@@ -1,123 +1,231 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import SavingsCard from './components/SavingsCard';
-import ProductGrid from './components/ProductGrid';
-import AddItemModal from './components/AddItemModal';
-import { BuyRuleItem, loadData, saveData } from './lib/storage';
+import { FormEvent, useEffect, useMemo, useState } from "react";
+
+type ItemStatus = "waiting" | "saved";
+
+type Item = {
+  id: string;
+  name: string;
+  price: number;
+  createdAt: number;
+  waitHours: number;
+  status: ItemStatus;
+};
+
+const STORAGE_KEY = "buy-rule-items";
+const WAIT_HOURS = 48;
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) {
+    return "Waiting period complete";
+  }
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const d = String(days).padStart(2, "0");
+  const h = String(hours).padStart(2, "0");
+  const m = String(minutes).padStart(2, "0");
+  const s = String(seconds).padStart(2, "0");
+
+  return `${d}d ${h}h ${m}m ${s}s`;
+}
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'waiting' | 'saved'>('waiting');
-  const [items, setItems] = useState<BuyRuleItem[]>([]);
-  const [showModal, setShowModal] = useState(false);
+  const [items, setItems] = useState<Item[]>([]);
+  const [tab, setTab] = useState<ItemStatus>("waiting");
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [now, setNow] = useState(Date.now());
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const data = loadData();
-    setItems(data.items);
-  }, []);
-
-  const waitingItems = items.filter(item => item.status === 'waiting');
-  const savedItems = items.filter(item => item.status === 'saved');
-  
-  const totalSaved = savedItems.reduce((sum, item) => sum + item.price, 0);
-  const totalAvoided = savedItems.length;
-
-  const handleAddItem = (item: BuyRuleItem) => {
-    const updatedItems = [...items, item];
-    setItems(updatedItems);
-    saveData({ items: updatedItems });
-    setShowModal(false);
-  };
-
-  const handleItemAction = (itemId: string, action: 'still-want' | 'skip' | 'bought') => {
-    const updatedItems = items.map(item => {
-      if (item.id === itemId) {
-        if (action === 'still-want') {
-          // Reset timer
-          const newExpiresAt = Date.now() + item.waitDurationMs;
-          return { ...item, expiresAt: newExpiresAt };
-        } else if (action === 'skip') {
-          return { ...item, status: 'saved' as const, decisionMadeAt: Date.now() };
-        } else if (action === 'bought') {
-          return { ...item, status: 'bought' as const, decisionMadeAt: Date.now() };
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Item[];
+        if (Array.isArray(parsed)) {
+          setItems(parsed);
         }
       }
-      return item;
-    });
-    
-    setItems(updatedItems);
-    saveData({ items: updatedItems });
+    } catch {
+      setItems([]);
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }, [items, hydrated]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const savingsTotal = useMemo(() => {
+    return items
+      .filter((item) => item.status === "saved")
+      .reduce((sum, item) => sum + item.price, 0);
+  }, [items]);
+
+  const visibleItems = useMemo(() => {
+    return items
+      .filter((item) => item.status === tab)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }, [items, tab]);
+
+  const addItem = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedName = name.trim();
+    const parsedPrice = Number.parseFloat(price);
+
+    if (!trimmedName || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+      return;
+    }
+
+    const newItem: Item = {
+      id: crypto.randomUUID(),
+      name: trimmedName,
+      price: parsedPrice,
+      createdAt: Date.now(),
+      waitHours: WAIT_HOURS,
+      status: "waiting",
+    };
+
+    setItems((prev) => [newItem, ...prev]);
+    setName("");
+    setPrice("");
+  };
+
+  const markSaved = (id: string) => {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status: "saved" } : item)));
+  };
+
+  const removeItem = (id: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">48-Hour Buy Rule</h1>
-          <p className="text-gray-600 mt-1">Beat impulse purchases, save money 💰</p>
+    <main className="min-h-screen bg-[#F8FAFC] px-4 py-8">
+      <section className="mx-auto w-full max-w-4xl space-y-4">
+        <header className="space-y-1">
+          <h1 className="text-2xl font-semibold text-slate-900">Impulse Buy Blocker</h1>
+          <p className="text-sm text-slate-600">Wait before buying. Keep what you save.</p>
         </header>
 
-        {/* Savings Card */}
-        <SavingsCard 
-          totalSaved={totalSaved}
-          itemsAvoided={totalAvoided}
-          totalItems={items.length}
-        />
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-sm text-slate-600">Total Saved</p>
+          <p className="mt-1 text-2xl font-semibold text-[#10B981]">${savingsTotal.toFixed(2)}</p>
+        </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b-2 border-gray-200 mb-6 mt-8">
+        <form onSubmit={addItem} className="rounded-lg border border-slate-200 bg-white p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_180px_auto]">
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Item name"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
+            />
+            <input
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              placeholder="Price"
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-[#3B82F6] px-4 py-2 text-sm font-medium text-white"
+            >
+              Add
+            </button>
+          </div>
+        </form>
+
+        <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab('waiting')}
-            className={`flex-1 py-3 font-medium text-lg transition-colors relative ${
-              activeTab === 'waiting'
-                ? 'text-green-600'
-                : 'text-gray-500 hover:text-gray-700'
+            type="button"
+            onClick={() => setTab("waiting")}
+            className={`rounded-md px-4 py-2 text-sm font-medium ${
+              tab === "waiting" ? "bg-[#3B82F6] text-white" : "border border-slate-300 bg-white text-slate-700"
             }`}
           >
-            Waiting ({waitingItems.length})
-            {activeTab === 'waiting' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600"></div>
-            )}
+            Waiting
           </button>
           <button
-            onClick={() => setActiveTab('saved')}
-            className={`flex-1 py-3 font-medium text-lg transition-colors relative ${
-              activeTab === 'saved'
-                ? 'text-green-600'
-                : 'text-gray-500 hover:text-gray-700'
+            type="button"
+            onClick={() => setTab("saved")}
+            className={`rounded-md px-4 py-2 text-sm font-medium ${
+              tab === "saved" ? "bg-[#3B82F6] text-white" : "border border-slate-300 bg-white text-slate-700"
             }`}
           >
-            Saved ({savedItems.length})
-            {activeTab === 'saved' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600"></div>
-            )}
+            Saved
           </button>
         </div>
 
-        {/* Product Grid */}
-        <ProductGrid
-          items={activeTab === 'waiting' ? waitingItems : savedItems}
-          onItemAction={handleItemAction}
-        />
+        {visibleItems.length === 0 ? (
+          <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
+            No items in this tab.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {visibleItems.map((item) => {
+              const endsAt = item.createdAt + item.waitHours * 60 * 60 * 1000;
+              const remaining = endsAt - now;
 
-        {/* Floating Add Button */}
-        <button
-          onClick={() => setShowModal(true)}
-          className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center text-3xl z-50"
-          aria-label="Add new item"
-        >
-          +
-        </button>
+              return (
+                <article key={item.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="space-y-2">
+                    <h2 className="text-base font-semibold text-slate-900">{item.name}</h2>
+                    <p className="text-sm text-slate-600">${item.price.toFixed(2)}</p>
 
-        {/* Add Item Modal */}
-        {showModal && (
-          <AddItemModal
-            onClose={() => setShowModal(false)}
-            onAdd={handleAddItem}
-          />
+                    {item.status === "waiting" ? (
+                      <p className="text-sm text-slate-600">Time left: {formatCountdown(remaining)}</p>
+                    ) : (
+                      <p className="text-sm text-[#10B981]">Saved</p>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    {item.status === "waiting" && (
+                      <button
+                        type="button"
+                        onClick={() => markSaved(item.id)}
+                        className="rounded-md bg-[#3B82F6] px-3 py-2 text-sm font-medium text-white"
+                      >
+                        Mark Saved
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
