@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 48-Hour Buy Rule 💰
+
+Beat impulse purchases and save money with the 48-hour waiting rule. Add items you want to buy, wait, and see if you still want them later!
+
+## Features
+
+⏰ **Live Countdown Timers**
+- Real-time countdowns for each item
+- Visual indicators (red < 1h, amber < 24h)
+- Configurable wait times (24h, 48h, 72h, 1 week, 30 days)
+
+💵 **Savings Tracking**
+- Circular progress indicator showing avoided purchases
+- Total money saved displayed prominently
+- Count of items successfully avoided
+- Green gradient savings card
+
+🛍️ **Product Management**
+- Add items with name, price, and optional image URL
+- "Waiting" tab for active timers
+- "Saved" tab for successfully avoided purchases
+- Action buttons when timer expires (Still Want / Skip)
+
+🎨 **Beautiful UI**
+- Clean white/light gray background
+- 2-column mobile, 3-column desktop grid
+- Floating + button for quick adds
+- Smooth animations and transitions
+- Product cards with square images
+
+💾 **Local Storage**
+- All data persists in browser localStorage
+- No backend required
+- Completely private
+
+## Tech Stack
+
+- **Next.js 15** with App Router
+- **TypeScript** for type safety
+- **Tailwind CSS** for styling
+- **localStorage** for data persistence
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How It Works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Add Item**: Click the + button and enter product details
+2. **Choose Wait Time**: Select from preset durations (default 48h)
+3. **Wait**: Watch the countdown timer tick down
+4. **Decide**: When timer expires, choose "Skip" (save money!) or "Still Want" (extends timer)
+5. **Track Progress**: See your total savings and avoided purchases grow
 
-## Learn More
+## The Psychology
 
-To learn more about Next.js, take a look at the following resources:
+The 48-hour rule helps you:
+- **Reduce impulse buying**: Forced waiting period creates space for reflection
+- **Make conscious decisions**: Time reveals whether you truly need/want the item
+- **Gamify savings**: Visual progress makes saving money rewarding
+- **Break shopping habits**: Creates friction in the purchase process
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Design Inspiration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Inspired by:
+- Shopping wishlist apps (Wish, Keep)
+- Budget tracker savings cards
+- Pinterest-style product grids
+- Gamification principles
 
-## Deploy on Vercel
+## Wait Time Presets
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **24h**: Quick check for smaller purchases
+- **48h**: The classic rule (recommended)
+- **72h**: Extended waiting for bigger decisions
+- **1 week**: For significant purchases
+- **30 days**: For major financial decisions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+MIT
+
+---
+
+Built with 💚 by [Branson Pfiester](https://github.com/bransonpfiester)
